@@ -1,0 +1,114 @@
+<html>
+<script src='openpgp.js' ></script>
+
+<script>
+//var openpgp = require('openpgp'); // use as CommonJS, AMD, ES6 module or via window.openpgp
+
+//openpgp.initWorker({ path:'openpgp.worker.js' }) // set the relative web worker path
+
+
+
+var pubkey = '-----BEGIN PGP PUBLIC KEY BLOCK ... END PGP PUBLIC KEY BLOCK-----';
+var privkey = '-----BEGIN PGP PRIVATE KEY BLOCK ... END PGP PRIVATE KEY BLOCK-----'; //encrypted private key
+var passphrase = document.getElementById('passphrase').value
+var privKeyObj = openpgp.key.readArmored(privkey).keys[0];
+var cleartext, encrypted
+
+function __key(){
+	pubkey = document.getElementById('public').value
+	privkey = document.getElementById('private').value
+	
+	privKeyObj = openpgp.key.readArmored(privkey).keys[0];
+	privKeyObj.decrypt(passphrase);
+}
+
+function __crypt(){
+	
+	__key()
+	
+	options = {
+		data: document.getElementById('original').value,                             // input as String (or Uint8Array)
+		publicKeys: openpgp.key.readArmored(pubkey).keys,  // for encryption
+		privateKeys: privKeyObj // for signing (optional)
+	};
+
+	openpgp.encrypt(options).then(function(ciphertext) {
+		encrypted = ciphertext.data; // '-----BEGIN PGP MESSAGE ... END PGP MESSAGE-----'
+	});
+	document.getElementById('crypted').value = encrypted
+}
+
+function __decrypt(){
+
+	__key()
+
+	encrypted = document.getElementById('crypted').value
+	
+	options = {
+		message: openpgp.message.readArmored(encrypted),     // parse armored message
+		publicKeys: openpgp.key.readArmored(pubkey).keys,    // for verification (optional)
+		privateKey: privKeyObj // for decryption
+	};
+
+	openpgp.decrypt(options).then(function(plaintext) {
+		document.getElementById('original').value = plaintext.data
+		return plaintext.data; // 'Hello, World!'
+	});
+	
+}
+
+function __sign(){
+
+	__key()
+
+	options = {
+		data: document.getElementById('original').value,                             // input as String (or Uint8Array)
+		privateKeys: privKeyObj, // for signing
+		detached: true
+	};
+
+	openpgp.sign(options).then(function(signed) {
+		cleartext = signed.data;
+		detachedSig = signed.signature;
+	});
+	document.getElementById('cleartext').value=cleartext
+	document.getElementById('detachedSig').value=detachedSig
+}
+
+function __verify(){
+	__key()
+	
+	detachedSig = document.getElementById('detachedSig').value
+	cleartext = document.getElementById('cleartext').value
+	
+	options = {
+		message: openpgp.cleartext.readArmored(cleartext), // parse armored message
+		signature: openpgp.signature.readArmored(detachedSig), // parse detached signature
+		publicKeys: openpgp.key.readArmored(pubkey).keys   // for verification
+	};
+
+	openpgp.verify(options).then(function(verified) {
+		validity = verified.signatures[0].valid; // true
+		if (validity) {
+			console.log('signed by key id ' + verified.signatures[0].keyid.toHex());
+		}
+	});
+}
+
+</script>
+<head>
+<meta charset="UTF-8">
+</head>
+<body>
+<textarea type="text" id="public" style="width:800px; height:200px;"></textarea>
+<textarea type="text" id="private" style="width:800px; height:200px;"></textarea><textarea type="text" id="passphrase" style="width:200px; height:100px;"></textarea>
+<textarea type="text" id="original" style="width:800px; height:400px;"></textarea>
+<textarea type="text" id="crypted" style="width:800px; height:400px;"></textarea>
+<textarea type="text" id="cleartext" style="width:800px; height:200px;"></textarea>
+<textarea type="text" id="detachedSig" style="width:800px; height:200px;"></textarea>
+<button onclick='__crypt()' >crypt</button>
+<button onclick='__decrypt()' >decrypt</button>
+<button onclick='__sign()' >sign</button>
+<button onclick='__verify()' >verify sign</button>
+</body>
+</html>
