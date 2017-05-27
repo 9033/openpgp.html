@@ -3,21 +3,18 @@
 <script src='openpgp.js' ></script>
 
 <script>
-//var openpgp = require('openpgp'); // use as CommonJS, AMD, ES6 module or via window.openpgp
-
-//openpgp.initWorker({ path:'openpgp.worker.js' }) // set the relative web worker path
-
-
 
 var pubkey = '-----BEGIN PGP PUBLIC KEY BLOCK ... END PGP PUBLIC KEY BLOCK-----';
 var privkey = '-----BEGIN PGP PRIVATE KEY BLOCK ... END PGP PRIVATE KEY BLOCK-----'; //encrypted private key
-var passphrase = document.getElementById('passphrase').value
+var passphrase
 var privKeyObj = openpgp.key.readArmored(privkey).keys[0];
 var cleartext, encrypted
 
 function __key(){
 	pubkey = document.getElementById('public').value
 	privkey = document.getElementById('private').value
+	
+	passphrase = document.getElementById('passphrase').value
 	
 	privKeyObj = openpgp.key.readArmored(privkey).keys[0];
 	privKeyObj.decrypt(passphrase);
@@ -35,8 +32,8 @@ function __crypt(){
 
 	openpgp.encrypt(options).then(function(ciphertext) {
 		encrypted = ciphertext.data; // '-----BEGIN PGP MESSAGE ... END PGP MESSAGE-----'
+		document.getElementById('crypted').value = encrypted
 	});
-	document.getElementById('crypted').value = encrypted
 }
 
 function __decrypt(){
@@ -71,9 +68,9 @@ function __sign(){
 	openpgp.sign(options).then(function(signed) {
 		cleartext = signed.data;
 		detachedSig = signed.signature;
+		document.getElementById('cleartext').value=cleartext
+		document.getElementById('detachedSig').value=detachedSig
 	});
-	document.getElementById('cleartext').value=cleartext
-	document.getElementById('detachedSig').value=detachedSig
 }
 
 function __verify(){
@@ -102,7 +99,7 @@ function __verify(){
 </head>
 <body>
 <textarea type="text" id="public" style="width:800px; height:200px;"></textarea>
-<textarea type="text" id="private" style="width:800px; height:200px;"></textarea><textarea type="text" id="passphrase" style="width:200px; height:100px;"></textarea>
+<textarea type="text" id="private" style="width:800px; height:200px;"></textarea><input type="text" id="passphrase"><br>
 <textarea type="text" id="original" style="width:800px; height:400px;"></textarea>
 <textarea type="text" id="crypted" style="width:800px; height:400px;"></textarea>
 <textarea type="text" id="cleartext" style="width:800px; height:200px;"></textarea>
