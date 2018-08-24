@@ -1,99 +1,8 @@
 <html>
 <meta charset="UTF-8">
-<script src='openpgp.js' ></script>
+<script src='openpgp.min.js' ></script>
 
-<script>
 
-var pubkey = '-----BEGIN PGP PUBLIC KEY BLOCK ... END PGP PUBLIC KEY BLOCK-----';
-var privkey = '-----BEGIN PGP PRIVATE KEY BLOCK ... END PGP PRIVATE KEY BLOCK-----'; //encrypted private key
-var passphrase
-var privKeyObj = openpgp.key.readArmored(privkey).keys[0];
-var cleartext, encrypted
-
-function __key(){
-	pubkey = document.getElementById('public').value
-	privkey = document.getElementById('private').value
-	
-	passphrase = document.getElementById('passphrase').value
-	
-	privKeyObj = openpgp.key.readArmored(privkey).keys[0];
-	privKeyObj.decrypt(passphrase);
-}
-
-function __crypt(){
-	
-	__key()
-	
-	options = {
-		data: document.getElementById('original').value,                             // input as String (or Uint8Array)
-		publicKeys: openpgp.key.readArmored(pubkey).keys,  // for encryption
-		privateKeys: privKeyObj // for signing (optional)
-	};
-
-	openpgp.encrypt(options).then(function(ciphertext) {
-		encrypted = ciphertext.data; // '-----BEGIN PGP MESSAGE ... END PGP MESSAGE-----'
-		document.getElementById('crypted').value = encrypted
-	});
-}
-
-function __decrypt(){
-
-	__key()
-
-	encrypted = document.getElementById('crypted').value
-	
-	options = {
-		message: openpgp.message.readArmored(encrypted),     // parse armored message
-		publicKeys: openpgp.key.readArmored(pubkey).keys,    // for verification (optional)
-		privateKey: privKeyObj // for decryption
-	};
-
-	openpgp.decrypt(options).then(function(plaintext) {
-		document.getElementById('original').value = plaintext.data
-		return plaintext.data; // 'Hello, World!'
-	});
-	
-}
-
-function __sign(){
-
-	__key()
-
-	options = {
-		data: document.getElementById('original').value,                             // input as String (or Uint8Array)
-		privateKeys: privKeyObj, // for signing
-		detached: true
-	};
-
-	openpgp.sign(options).then(function(signed) {
-		cleartext = signed.data;
-		detachedSig = signed.signature;
-		document.getElementById('cleartext').value=cleartext
-		document.getElementById('detachedSig').value=detachedSig
-	});
-}
-
-function __verify(){
-	__key()
-	
-	detachedSig = document.getElementById('detachedSig').value
-	cleartext = document.getElementById('cleartext').value
-	
-	options = {
-		message: openpgp.cleartext.readArmored(cleartext), // parse armored message
-		signature: openpgp.signature.readArmored(detachedSig), // parse detached signature
-		publicKeys: openpgp.key.readArmored(pubkey).keys   // for verification
-	};
-
-	openpgp.verify(options).then(function(verified) {
-		validity = verified.signatures[0].valid; // true
-		if (validity) {
-			console.log('signed by key id ' + verified.signatures[0].keyid.toHex());
-		}
-	});
-}
-
-</script>
 <head>
 <meta charset="UTF-8">
 </head>
@@ -108,5 +17,155 @@ function __verify(){
 <button onclick='__decrypt()' >decrypt</button>
 <button onclick='__sign()' >sign</button>
 <button onclick='__verify()' >verify sign</button>
+<button onclick='__sign_detached()' >sign detached</button>
+<button onclick='__verify_detached()' >verify sign detached</button>
+<script>
+/*
+https://github.com/openpgpjs/openpgpjs/tree/master/dist
+*/
+var pubkey = '-----BEGIN PGP PUBLIC KEY BLOCK ... END PGP PUBLIC KEY BLOCK-----';
+document.getElementById('public').value=pubkey;
+var privkey = '-----BEGIN PGP PRIVATE KEY BLOCK ... END PGP PRIVATE KEY BLOCK-----'; //encrypted private key
+var passphrase
+var privKeyObj
+var cleartext, encrypted
+
+async function __key(){
+	pubkey = document.getElementById('public').value
+	privkey = document.getElementById('private').value
+	
+	passphrase = document.getElementById('passphrase').value
+	
+	
+}
+
+async function __crypt(){
+	
+	__key()
+	
+	options = {
+		message: openpgp.message.fromText( document.getElementById('original').value) ,                             // input as String (or Uint8Array)
+		publicKeys: ( await openpgp.key.readArmored(pubkey)).keys//,  // for encryption
+		//privateKeys: [privKeyObj] // for signing (optional)
+	};
+    
+	openpgp.encrypt(options).then(function(ciphertext) {
+		encrypted = ciphertext.data; // '-----BEGIN PGP MESSAGE ... END PGP MESSAGE-----'
+		document.getElementById('crypted').value = encrypted
+        return encrypted;
+	});
+}
+
+async function __decrypt(){
+
+	__key()
+    privKeyObj = ( await openpgp.key.readArmored(privkey)).keys[0];
+	await privKeyObj.decrypt(passphrase);
+    
+	encrypted = document.getElementById('crypted').value
+	
+	options = {
+		message:  await openpgp.message.readArmored(encrypted),     // parse armored message
+		//publicKeys: ( await openpgp.key.readArmored(pubkey)).keys,    // for verification (optional)
+		privateKeys: [privKeyObj] // for decryption
+	};
+
+	openpgp.decrypt(options).then(function(plaintext) {
+		document.getElementById('original').value = plaintext.data
+		return plaintext.data; // 'Hello, World!'
+	});
+	
+}
+
+async function __sign(){
+
+	__key();
+    privKeyObj = ( await openpgp.key.readArmored(privkey)).keys[0];
+	await privKeyObj.decrypt(passphrase);
+    
+	options = {
+        message: openpgp.cleartext.fromText( document.getElementById('original').value),
+		//data: document.getElementById('original').value,                             // input as String (or Uint8Array)
+		privateKeys: [privKeyObj]//, // for signing
+		//detached: true
+	};
+    //console.log(options);
+	openpgp.sign(options).then(function(signed) {
+		cleartext = signed.data;
+		//detachedSig = signed.signature;
+		document.getElementById('cleartext').value=cleartext
+		//document.getElementById('detachedSig').value=detachedSig
+	});
+}
+
+async function __sign_detached(){
+
+	__key();
+    privKeyObj = ( await openpgp.key.readArmored(privkey)).keys[0];
+	await privKeyObj.decrypt(passphrase);
+    
+	options = {
+        message: openpgp.cleartext.fromText( document.getElementById('original').value),
+		//data: document.getElementById('original').value,                             // input as String (or Uint8Array)
+		privateKeys: [privKeyObj], // for signing
+		detached: true
+	};
+    //console.log(options);
+	openpgp.sign(options).then(function(signed) {
+		//cleartext = signed.data;
+		detachedSig = signed.signature;
+		//document.getElementById('cleartext').value=cleartext
+		document.getElementById('detachedSig').value=detachedSig
+	});
+}
+
+
+async function __verify(){
+	__key();
+	
+	//detachedSig = document.getElementById('detachedSig').value;
+	cleartext = document.getElementById('cleartext').value;
+	
+	options = {
+		message: (await openpgp.cleartext.readArmored(cleartext)),            // parse armored message
+		//signature: await openpgp.signature.readArmored(detachedSig), // parse detached signature
+		publicKeys: (await openpgp.key.readArmored(pubkey)).keys   // for verification
+	};
+    //console.log(options.message);
+	openpgp.verify(options).then(function(verified) {
+		validity = verified.signatures[0].valid; // true
+		if (validity) {
+			console.log('signed by key id ' + verified.signatures[0].keyid.toHex());
+            console.log(verified.signatures[0].signature.packets[0].created);
+		}
+        else{
+            console.error('not validity');
+        }
+	});
+}
+async function __verify_detached(){
+	__key();
+	
+	detachedSig = document.getElementById('detachedSig').value;
+	original = document.getElementById('original').value;
+	
+	options = {
+		message: ( openpgp.cleartext.fromText(original)),            // parse armored message
+		signature: await openpgp.signature.readArmored(detachedSig), // parse detached signature
+		publicKeys: (await openpgp.key.readArmored(pubkey)).keys   // for verification
+	};
+    //console.log(options.message);
+	openpgp.verify(options).then(function(verified) {
+		validity = verified.signatures[0].valid; // true
+		if (validity) {
+			console.log('signed by key id ' + verified.signatures[0].keyid.toHex());
+            console.log(verified.signatures[0].signature.packets[0].created);
+		}
+        else{
+            console.error('not validity');
+        }
+	});
+}
+</script>
 </body>
 </html>
